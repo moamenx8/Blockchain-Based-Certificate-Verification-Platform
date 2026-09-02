@@ -1,0 +1,42 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-ae5f3544f1a69b579502a5539d313262adc3b3ef",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "compilerType": "solc",
+  "userSourceNameMap": {
+    "contracts/CertificateRegistry.sol": "project/contracts/CertificateRegistry.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/CertificateRegistry.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.24;\r\n\r\ncontract CertificateRegistry {\r\n    enum Status { Issued, Revoked } //certificates states\r\n    struct Certificate { //each certificate contain 5 piece of information\r\n        address issuer;  //wallet address of university\r\n        address student; //wallet address of student\r\n        bytes32 certificateHash; // hash of the certificate data/file(Instead of putting the actual PDF certificate on-chain)\r\n        uint256 issueDate; //time when certificate was issued\r\n        Status status; //certificate status\r\n    }\r\n\r\n    //mapping certificate id(byte32) to certificate\r\n    //other contracts can't directly access the mapping variable (private)\r\n    mapping(bytes32 => Certificate) private certificates;\r\n\r\n    // Only these addresses can issue certs (e.g. university admin wallets)\r\n    mapping(address => bool) public authorizedIssuers;\r\n\r\n    //stores the wallet that controls the issuer permissions.\r\n    address public owner;\r\n\r\n    //we have 4 events, frontend can listen for it\r\n    event CertificateIssued(bytes32 indexed certificateID, address indexed issuer, address indexed student);\r\n    event CertificateRevoked(bytes32 indexed certificateID, address indexed revokedBy);\r\n    event IssuerAuthorized(address indexed issuer);\r\n    event IssuerRevoked(address indexed issuer);\r\n\r\n    //Only the contract owner can execute functions using onlyOwner\r\n    modifier onlyOwner() {\r\n        require(msg.sender == owner, \"Not owner\");\r\n        _;\r\n    }\r\n\r\n    //checks if the caller is an authorized issuer.\r\n    modifier onlyAuthorizedIssuer() {\r\n        require(authorizedIssuers[msg.sender], \"Not authorized issuer\");\r\n        _;\r\n    }\r\n\r\n    //constructor runs only once, when the contract is deployed.\r\n    constructor() {\r\n        owner = msg.sender;\r\n        authorizedIssuers[msg.sender] = true; // deployer is an issuer by default\r\n    }\r\n\r\n    //Only the owner can call this\r\n    function authorizeIssuer(address issuer) external onlyOwner {\r\n        authorizedIssuers[issuer] = true;\r\n        emit IssuerAuthorized(issuer);\r\n    }\r\n\r\n    function revokeIssuer(address issuer) external onlyOwner {\r\n        authorizedIssuers[issuer] = false;\r\n        emit IssuerRevoked(issuer);\r\n    }\r\n\r\n    /// @notice Issues a certificate and returns its unique ID\r\n    function issueCertificate(address student, bytes32 certificateHash)\r\n        external\r\n        onlyAuthorizedIssuer\r\n        returns (bytes32 certificateID)\r\n    {   //generate a unique certificate ID using keccak256 hash function\r\n        certificateID = keccak256(\r\n            abi.encodePacked(msg.sender, student, certificateHash, block.timestamp, block.number)\r\n        );\r\n\r\n        // Ensure the certificate doesn't already exist\r\n        require(certificates[certificateID].issueDate == 0, \"Certificate already exists\");\r\n    //store certificate data in the mapping using the generated certificateID as the key\r\n        certificates[certificateID] = Certificate({\r\n            issuer: msg.sender,\r\n            student: student,\r\n            certificateHash: certificateHash,\r\n            issueDate: block.timestamp,\r\n            status: Status.Issued\r\n        });\r\n    //creates a blockchain event.\r\n        emit CertificateIssued(certificateID, msg.sender, student);\r\n    }\r\n\r\n    /// @notice Returns true only if the cert exists AND is still Issued (not revoked)\r\n    function verifyCertificate(bytes32 certificateID) external view returns (bool isValid) {\r\n        Certificate memory cert = certificates[certificateID];\r\n        return cert.issueDate != 0 && cert.status == Status.Issued;\r\n    }\r\n\r\n    /// @notice Full details for a certificate (useful for a frontend)\r\n    function getCertificate(bytes32 certificateID) external view returns (Certificate memory) {\r\n        require(certificates[certificateID].issueDate != 0, \"Certificate does not exist\");\r\n        return certificates[certificateID];\r\n    }\r\n\r\n    /// @notice Revokes a certificate. Only the issuer can revoke their own certificates.\r\n    function revokeCertificate(bytes32 certificateID) external {\r\n        Certificate storage cert = certificates[certificateID];\r\n        require(cert.issueDate != 0, \"Certificate does not exist\");\r\n        require(cert.issuer == msg.sender, \"Only issuer can revoke\");\r\n        require(cert.status == Status.Issued, \"Already revoked\");\r\n\r\n        cert.status = Status.Revoked;\r\n        emit CertificateRevoked(certificateID, msg.sender);\r\n    }\r\n}"
+      }
+    }
+  }
+}
