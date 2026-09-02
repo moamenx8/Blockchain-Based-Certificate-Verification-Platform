@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Registry // Blockchain Verification Node</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<link rel="stylesheet" href="CSS/style.css">
+
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M12 2 L20 6 V12 C20 17 16.5 20.5 12 22 C7.5 20.5 4 17 4 12 V6 Z"/>
+          <path d="M9 12 l2 2 l4 -4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1>CERTIFICATE REGISTRY</h1>
+        <p>on&#8209;chain credential verification node</p>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <div class="net-pill" id="netPill"><span class="dot"></span><span id="netText">DISCONNECTED</span></div>
+      <div id="account"></div>
+      <button class="connect-btn" onclick="connectWallet()" id="connectBtn">↯ Connect MetaMask</button>
+    </div>
+  </header>
+
+  <div class="contract-strip">
+    <span><span class="k">contract:</span> <span class="v" id="contractShort">0x5FbD…80aa3</span></span>
+    <span><span class="k">standard:</span> <span class="v">EVM · ethers.js v6</span></span>
+  </div>
+
+  <!-- ADMIN / ISSUER MANAGEMENT -->
+  <section class="admin-grid">
+    <section class="panel admin authorize">
+      <div class="panel-head"><div class="title"><span class="idx">01A</span><div><h2>👤 Authorize Issuer</h2><span class="sub">authorizeIssuer(address) · owner only</span></div></div></div>
+      <div class="field"><label class="field-label">Issuer Wallet Address</label><input id="issuerAddress" placeholder="0x0000000000000000000000000000000000000000"></div>
+      <button class="action btn-authorize" onclick="authorizeIssuer()">Authorize Issuer</button>
+      <div id="authorizeResult" class="readout"></div>
+    </section>
+
+    <section class="panel admin issuer-revoke">
+      <div class="panel-head"><div class="title"><span class="idx">01B</span><div><h2>🚫 Revoke Issuer</h2><span class="sub">revokeIssuer(address) · owner only</span></div></div></div>
+      <div class="field"><label class="field-label">Issuer Wallet Address</label><input id="issuerRevokeAddress" placeholder="0x0000000000000000000000000000000000000000"></div>
+      <button class="action btn-issuer-revoke" onclick="revokeIssuer()">Revoke Issuer Access</button>
+      <div id="issuerRevokeResult" class="readout"></div>
+    </section>
+  </section>
+
+  <!-- GET CERTIFICATE DETAILS -->
+  <section class="panel details">
+    <div class="panel-head"><div class="title"><span class="idx">04</span><div><h2>📋 Get Certificate Details</h2><span class="sub">getCertificate(bytes32) → Certificate</span></div></div></div>
+    <div class="field"><label class="field-label">Certificate ID</label><input id="certIdToGet" placeholder="0x…"></div>
+    <button class="action btn-details" onclick="getCertificateDetails()">Retrieve Certificate Details</button>
+    <div id="certificateDetails" class="details-card"></div>
+  </section>
+
+  <div class="workspace-grid">
+  <!-- ISSUE -->
+  <section class="panel issue">
+    <div class="panel-head">
+      <div class="title">
+        <span class="idx">01</span>
+        <div>
+          <h2>📝 Issue Certificate</h2>
+          <span class="sub">issueCertificate(address, bytes32)</span>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Student Address</label>
+      <input id="studentAddress" placeholder="0x0000000000000000000000000000000000">
+    </div>
+    <div class="field">
+      <label class="field-label">Certificate Data</label>
+      <input id="certData" placeholder="Certificate name + student details">
+    </div>
+    <button class="action btn-issue" onclick="issueCertificate()">Issue Certificate</button>
+    <div id="issuedID" class="readout ok"></div>
+    <div id="qrcode"></div>
+    <div id="qrDownloadWrap" style="text-align:center; display:none;">
+    <button class="secondary small-btn" onclick="downloadQR()">⬇️ Download QR Code</button>
+    </div>
+  </section>
+
+  
+  <!-- REVOKE -->
+  <section class="panel revoke">
+    <div class="panel-head">
+      <div class="title">
+        <span class="idx">03</span>
+        <div>
+          <h2>🚫 Revoke Certificate</h2>
+          <span class="sub">revokeCertificate(bytes32)</span>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Certificate ID</label>
+      <input id="certIdToRevoke" placeholder="0x…">
+    </div>
+    <button class="action btn-revoke" onclick="revokeCertificate()">Revoke Certificate</button>
+    <div id="revokeResult" class="readout bad"></div>
+  </section>
+
+  <!-- VERIFY -->
+  <section class="panel verify">
+    <div class="panel-head">
+      <div class="title">
+        <span class="idx">02</span>
+        <div>
+          <h2>✅ Verify Certificate</h2>
+          <span class="sub">verifyCertificate(bytes32) → bool</span>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Certificate ID</label>
+      <input id="certIdToVerify" placeholder="0x…">
+    </div>
+    <button class="action btn-verify" onclick="verifyCertificate()">Verify Certificate</button>
+    <div id="result" class="readout"></div>
+  </section>
+
+  <!-- verify using QR -->
+   <div class="box">
+  <h3>📷 verify usingQR Code</h3>
+  <input type="file" id="qrFileInput" accept="image/*">
+  <button onclick="verifyUploadedQR()" id="verifyQrBtn">🔍 Verify Uploaded QR</button>
+  <button onclick="toggleCamera()" id="cameraToggleBtn">📷 Open Camera and Scan QR</button>
+  <video id="scanner-video" autoplay playsinline muted></video>
+  <canvas id="scanner-canvas" style="display:none;"></canvas>
+  <div id="qrVerifyResult"></div>
+</div>
+
+
+  </div>
+
+  <!-- ACTIVITY LOG -->
+  <section class="log-panel">
+    <div class="log-head">
+      <h3>Session log</h3>
+      <div class="traffic-dots"><span></span><span></span><span></span></div>
+    </div>
+    <div id="log"><span class="entry"><span class="t">[--:--:--]</span> <span class="msg">waiting for wallet connection…</span></span></div>
+  </section>
+
+  <footer>SECURED BY WALLET SIGNATURE · NO PRIVATE KEYS LEAVE YOUR BROWSER</footer>
+</div>
+
+<script>
+  // ============================================================
+  // Certificate Registry Frontend
+  // - MetaMask is used ONLY for write operations (issue/revoke).
+  // - A read-only RPC provider is used for verification.
+  // - QR verification therefore does NOT require MetaMask.
+  // ============================================================
+
+  const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+
+  // IMPORTANT:
+  // This is for a local Hardhat node.
+  // For your final deployed project, replace this with your
+  // deployed network RPC URL.
+  const RPC_URL = "http://127.0.0.1:8545";
+
+  const CONTRACT_ABI = [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "bytes32", "name": "certificateID", "type": "bytes32" },
+        { "indexed": true, "internalType": "address", "name": "issuer", "type": "address" },
+        { "indexed": true, "internalType": "address", "name": "student", "type": "address" }
+      ],
+      "name": "CertificateIssued",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "bytes32", "name": "certificateID", "type": "bytes32" },
+        { "indexed": true, "internalType": "address", "name": "revokedBy", "type": "address" }
+      ],
+      "name": "CertificateRevoked",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "issuer", "type": "address" }
+      ],
+      "name": "IssuerAuthorized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "issuer", "type": "address" }
+      ],
+      "name": "IssuerRevoked",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "issuer", "type": "address" }
+      ],
+      "name": "authorizeIssuer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "", "type": "address" }
+      ],
+      "name": "authorizedIssuers",
+      "outputs": [
+        { "internalType": "bool", "name": "", "type": "bool" }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "bytes32", "name": "certificateID", "type": "bytes32" }
+      ],
+      "name": "getCertificate",
+      "outputs": [
+        {
+          "components": [
+            { "internalType": "address", "name": "issuer", "type": "address" },
+            { "internalType": "address", "name": "student", "type": "address" },
+            { "internalType": "bytes32", "name": "certificateHash", "type": "bytes32" },
+            { "internalType": "uint256", "name": "issueDate", "type": "uint256" },
+            { "internalType": "enum CertificateRegistry.Status", "name": "status", "type": "uint8" }
+          ],
+          "internalType": "struct CertificateRegistry.Certificate",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "student", "type": "address" },
+        { "internalType": "bytes32", "name": "certificateHash", "type": "bytes32" }
+      ],
+      "name": "issueCertificate",
+      "outputs": [
+        { "internalType": "bytes32", "name": "certificateID", "type": "bytes32" }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        { "internalType": "address", "name": "", "type": "address" }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "bytes32", "name": "certificateID", "type": "bytes32" }
+      ],
+      "name": "revokeCertificate",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "issuer", "type": "address" }
+      ],
+      "name": "revokeIssuer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "bytes32", "name": "certificateID", "type": "bytes32" }
+      ],
+      "name": "verifyCertificate",
+      "outputs": [
+        { "internalType": "bool", "name": "isValid", "type": "bool" }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ];
+
+  let provider = null;
+  let signer = null;
+  let contract = null;
+
+  // Read-only connection used for public verification.
+  let readProvider = null;
+  let readContract = null;
+
+  let cameraStream = null;
+  let scanLoopActive = false;
+  let qrScanInProgress = false;
+
+  // ------------------------------------------------------------
+  // Initialization
+  // ------------------------------------------------------------
+
+  function shortAddr(address) {
+    if (!address) return "";
+    return address.slice(0, 6) + "…" + address.slice(-4);
+  }
+
+  function isValidCertID(value) {
+    return /^0x[a-fA-F0-9]{64}$/.test(value.trim());
+  }
+
+  function initReadOnlyContract() {
+    try {
+      readProvider = new ethers.JsonRpcProvider(RPC_URL);
+      readContract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        CONTRACT_ABI,
+        readProvider
+      );
+
+      logLine("read-only blockchain provider initialized", "ok");
+    } catch (err) {
+      console.error("Read provider initialization failed:", err);
+      logLine(
+        "read-only provider initialization failed: " +
+        (err.message || err),
+        "err"
+      );
+    }
+  }
+
+  async function testReadConnection() {
+    if (!readProvider) return;
+
+    try {
+      const network = await readProvider.getNetwork();
+
+      logLine(
+        "RPC connected → chainId " + network.chainId.toString(),
+        "ok"
+      );
+    } catch (err) {
+      logLine(
+        "RPC unavailable → " + (err.message || err),
+        "err"
+      );
+    }
+  }
+
+  document.getElementById("contractShort").innerText =
+    shortAddr(CONTRACT_ADDRESS);
+
+  initReadOnlyContract();
+  testReadConnection();
+
+  // ------------------------------------------------------------
+  // Activity log
+  // ------------------------------------------------------------
+
+  function logLine(msg, kind) {
+    const el = document.getElementById("log");
+    const time = new Date().toLocaleTimeString("en-GB", {
+      hour12: false
+    });
+
+    const cls = kind ? " " + kind : "";
+
+    const line = document.createElement("span");
+    line.className = "entry" + cls;
+
+    line.innerHTML =
+      '<span class="t">[' + time + ']</span> ' +
+      '<span class="msg"></span>';
+
+    line.querySelector(".msg").innerText = msg;
+
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  // ------------------------------------------------------------
+  // MetaMask connection
+  // ------------------------------------------------------------
+
+  async function connectWallet() {
+    if (!window.ethereum) {
+      logLine(
+        "MetaMask not found — install the extension first.",
+        "err"
+      );
+
+      alert("Please install MetaMask first.");
+      return;
+    }
+
+    try {
+      provider = new ethers.BrowserProvider(window.ethereum);
+
+      await provider.send("eth_requestAccounts", []);
+
+      signer = await provider.getSigner();
+
+      contract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        CONTRACT_ABI,
+        signer
+      );
+
+      const address = await signer.getAddress();
+
+      document.getElementById("account").innerText =
+        shortAddr(address);
+
+      document.getElementById("connectBtn").innerText =
+        "Connected ✓";
+
+      const pill = document.getElementById("netPill");
+
+      pill.classList.add("online");
+
+      document.getElementById("netText").innerText =
+        "CONNECTED";
+
+      const network = await provider.getNetwork();
+
+      logLine(
+        "wallet connected → " + address,
+        "ok"
+      );
+
+      logLine(
+        "wallet chainId → " + network.chainId.toString(),
+        "ok"
+      );
+
+      // Helpful warning for local Hardhat development.
+      if (network.chainId !== 31337n) {
+        logLine(
+          "warning: MetaMask is not on Hardhat chain 31337",
+          "err"
+        );
+      }
+
+    } catch (err) {
+      console.error(err);
+
+      logLine(
+        "connection rejected: " +
+        (err.message || err),
+        "err"
+      );
+    }
+  }
+
+  // React to MetaMask account/network changes.
+  if (window.ethereum) {
+    window.ethereum.on("accountsChanged", function () {
+      window.location.reload();
+    });
+
+    window.ethereum.on("chainChanged", function () {
+      window.location.reload();
+    });
+  }
+
+  // ------------------------------------------------------------
+  // ISSUE CERTIFICATE
+  // ------------------------------------------------------------
+
+  async function issueCertificate() {
+    if (!contract) {
+      alert("Please connect MetaMask first.");
+      return;
+    }
+
+    const studentAddress =
+      document.getElementById("studentAddress").value.trim();
+
+    const certData =
+      document.getElementById("certData").value.trim();
+
+    const box =
+      document.getElementById("issuedID");
+
+    if (!ethers.isAddress(studentAddress)) {
+      box.className = "readout bad show";
+      box.innerText = "❌ Invalid student wallet address.";
+      return;
+    }
+
+    if (!certData) {
+      box.className = "readout bad show";
+      box.innerText = "❌ Please enter certificate data.";
+      return;
+    }
+
+    box.className = "readout neutral show";
+    box.innerText = "processing transaction…";
+
+    document.getElementById("qrcode").innerHTML = "";
+    document.getElementById("qrDownloadWrap").style.display = "none";
+
+    logLine(
+      "issueCertificate(" +
+      shortAddr(studentAddress) +
+      ", …) submitted",
+      null
+    );
+
+    try {
+      // Hash the certificate data.
+      const certHash =
+        ethers.keccak256(
+          ethers.toUtf8Bytes(certData)
+        );
+
+      const tx =
+        await contract.issueCertificate(
+          studentAddress,
+          certHash
+        );
+
+      logLine(
+        "transaction submitted → " + tx.hash,
+        null
+      );
+
+      const receipt = await tx.wait();
+
+      // Find CertificateIssued event.
+      let event = null;
+
+      for (const log of receipt.logs) {
+        try {
+          const parsed =
+            contract.interface.parseLog(log);
+
+          if (
+            parsed &&
+            parsed.name === "CertificateIssued"
+          ) {
+            event = parsed;
+            break;
+          }
+        } catch (_) {
+          // Ignore logs belonging to other contracts.
+        }
+      }
+
+      if (!event) {
+        throw new Error(
+          "CertificateIssued event was not found."
+        );
+      }
+
+      const certID =
+        event.args.certificateID;
+
+      box.className = "readout ok show";
+
+      box.innerHTML =
+        "✅ Certificate issued successfully" +
+        '<div class="hash-chip">' +
+        '<span>' + certID + '</span>' +
+        '<button class="copy-btn" ' +
+        'onclick="copyText(\'' + certID + '\')">' +
+        'copy</button>' +
+        '</div>';
+
+      generateQRCode(certID);
+
+      logLine(
+        "certificate issued → " + certID,
+        "ok"
+      );
+
+    } catch (err) {
+      console.error(err);
+
+      const message =
+        err.reason ||
+        err.shortMessage ||
+        err.message ||
+        String(err);
+
+      box.className = "readout bad show";
+      box.innerText =
+        "❌ Error: " + message;
+
+      logLine(
+        "issueCertificate failed: " + message,
+        "err"
+      );
+    }
+  }
+
+  // ------------------------------------------------------------
+  // QR GENERATION
+  // ------------------------------------------------------------
+
+  function generateQRCode(certID) {
+    const qrDiv =
+      document.getElementById("qrcode");
+
+    qrDiv.innerHTML = "";
+
+    new QRCode(qrDiv, {
+      text: certID,
+      width: 220,
+      height: 220,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    document.getElementById(
+      "qrDownloadWrap"
+    ).style.display = "block";
+
+    logLine(
+      "QR generated for certificate → " +
+      shortAddr(certID),
+      "ok"
+    );
+  }
+
+  function downloadQR() {
+    const qrDiv =
+      document.getElementById("qrcode");
+
+    const img =
+      qrDiv.querySelector("img") ||
+      qrDiv.querySelector("canvas");
+
+    if (!img) {
+      alert("QR code has not been generated yet.");
+      return;
+    }
+
+    const link =
+      document.createElement("a");
+
+    link.download =
+      "certificate-qr.png";
+
+    if (img.tagName === "CANVAS") {
+      link.href =
+        img.toDataURL("image/png");
+    } else {
+      link.href = img.src;
+    }
+
+    link.click();
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      logLine("certificate ID copied", "ok");
+    } catch (_) {
+      alert("Could not copy certificate ID.");
+    }
+  }
+
+  // ------------------------------------------------------------
+  // READ-ONLY CERTIFICATE VERIFICATION
+  // ------------------------------------------------------------
+
+  async function verifyCertificate() {
+    const certID =
+      document.getElementById(
+        "certIdToVerify"
+      ).value.trim();
+
+    const resultDiv =
+      document.getElementById("result");
+
+    if (!isValidCertID(certID)) {
+      resultDiv.className =
+        "readout bad show";
+
+      resultDiv.innerText =
+        "❌ Invalid Certificate ID. " +
+        "Expected a bytes32 value.";
+
+      return;
+    }
+
+    if (!readContract) {
+      resultDiv.className =
+        "readout bad show";
+
+      resultDiv.innerText =
+        "❌ Blockchain read connection is not initialized.";
+
+      return;
+    }
+
+    resultDiv.className =
+      "readout neutral show";
+
+    resultDiv.innerText =
+      "querying blockchain…";
+
+    logLine(
+      "verifyCertificate(" +
+      shortAddr(certID) +
+      ") called",
+      null
+    );
+
+    try {
+      const isValid =
+        await readContract.verifyCertificate(
+          certID
+        );
+
+      if (isValid) {
+        resultDiv.className =
+          "readout ok show";
+
+        resultDiv.innerText =
+          "✅ Certificate is VALID";
+
+        logLine(
+          "result: VALID",
+          "ok"
+        );
+      } else {
+        resultDiv.className =
+          "readout bad show";
+
+        resultDiv.innerText =
+          "❌ Certificate not found or revoked";
+
+        logLine(
+          "result: NOT VALID / revoked",
+          "err"
+        );
+      }
+
+    } catch (err) {
+      console.error(err);
+
+      const message =
+        err.reason ||
+        err.shortMessage ||
+        err.message ||
+        String(err);
+
+      resultDiv.className =
+        "readout bad show";
+
+      resultDiv.innerText =
+        "❌ Verification error: " +
+        message;
+
+      logLine(
+        "verifyCertificate failed: " +
+        message,
+        "err"
+      );
+    }
+  }
+
+  // ------------------------------------------------------------
+  // QR IMAGE UPLOAD
+  // ------------------------------------------------------------
+
+  function scanQRFromFile(event) {
+    const file =
+      event.target.files[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showQRResult(
+        false,
+        "❌ Please select an image file."
+      );
+      return;
+    }
+
+    showQRResult(
+      null,
+      "🔍 scanning image…"
+    );
+
+    const img = new Image();
+
+    img.onload = function () {
+      try {
+        const canvas =
+          document.getElementById(
+            "scanner-canvas"
+          );
+
+        const ctx =
+          canvas.getContext("2d", {
+            willReadFrequently: true
+          });
+
+        // Resize very large images to improve
+        // scanner performance while keeping the QR readable.
+        const maxSize = 1600;
+
+        let width = img.naturalWidth;
+        let height = img.naturalHeight;
+
+        if (width > maxSize || height > maxSize) {
+          const scale =
+            Math.min(
+              maxSize / width,
+              maxSize / height
+            );
+
+          width =
+            Math.floor(width * scale);
+
+          height =
+            Math.floor(height * scale);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        ctx.drawImage(
+          img,
+          0,
+          0,
+          width,
+          height
+        );
+
+        const imageData =
+          ctx.getImageData(
+            0,
+            0,
+            width,
+            height
+          );
+
+        const code =
+          jsQR(
+            imageData.data,
+            imageData.width,
+            imageData.height,
+            {
+              inversionAttempts:
+                "attemptBoth"
+            }
+          );
+
+        URL.revokeObjectURL(img.src);
+
+        if (code && code.data) {
+          handleScannedCertID(
+            code.data
+          );
+        } else {
+          showQRResult(
+            false,
+            "❌ Could not read a QR Code from this image."
+          );
+        }
+
+      } catch (err) {
+        console.error(err);
+
+        showQRResult(
+          false,
+          "❌ QR scanning failed: " +
+          (err.message || err)
+        );
+      }
+    };
+
+    img.onerror = function () {
+      URL.revokeObjectURL(img.src);
+
+      showQRResult(
+        false,
+        "❌ Could not load the selected image."
+      );
+    };
+
+    img.src =
+      URL.createObjectURL(file);
+  }
+
+  function verifyUploadedQR() {
+    const fileInput =
+      document.getElementById(
+        "qrFileInput"
+      );
+
+    const file =
+      fileInput.files[0];
+
+    if (!file) {
+      showQRResult(
+        false,
+        "⚠️ Choose a QR image first."
+      );
+
+      return;
+    }
+
+    scanQRFromFile({
+      target: {
+        files: [file]
+      }
+    });
+  }
+
+  // ------------------------------------------------------------
+  // CAMERA QR SCANNER
+  // ------------------------------------------------------------
+
+  async function toggleCamera() {
+    const video =
+      document.getElementById(
+        "scanner-video"
+      );
+
+    const btn =
+      document.getElementById(
+        "cameraToggleBtn"
+      );
+
+    if (cameraStream) {
+      stopCamera();
+      return;
+    }
+
+    if (
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
+      showQRResult(
+        false,
+        "❌ Camera access is not supported by this browser."
+      );
+
+      return;
+    }
+
+    try {
+      cameraStream =
+        await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: {
+              ideal: "environment"
+            }
+          },
+          audio: false
+        });
+
+      video.srcObject =
+        cameraStream;
+
+      video.style.display =
+        "block";
+
+      btn.innerText =
+        "⏹️ Stop Camera";
+
+      scanLoopActive = true;
+
+      qrScanInProgress = false;
+
+      requestAnimationFrame(
+        scanCameraLoop
+      );
+
+      showQRResult(
+        null,
+        "📷 Point the camera at the certificate QR code…"
+      );
+
+    } catch (err) {
+      console.error(err);
+
+      showQRResult(
+        false,
+        "❌ Could not open camera: " +
+        (err.message || err)
+      );
+    }
+  }
+
+  function stopCamera() {
+    const video =
+      document.getElementById(
+        "scanner-video"
+      );
+
+    const btn =
+      document.getElementById(
+        "cameraToggleBtn"
+      );
+
+    if (cameraStream) {
+      cameraStream
+        .getTracks()
+        .forEach(track => track.stop());
+
+      cameraStream = null;
+    }
+
+    scanLoopActive = false;
+    qrScanInProgress = false;
+
+    video.srcObject = null;
+    video.style.display = "none";
+
+    btn.innerText =
+      "📷 Open Camera and Scan QR";
+  }
+
+  function scanCameraLoop() {
+    if (!scanLoopActive) return;
+
+    const video =
+      document.getElementById(
+        "scanner-video"
+      );
+
+    const canvas =
+      document.getElementById(
+        "scanner-canvas"
+      );
+
+    if (
+      video.readyState >=
+      HTMLMediaElement.HAVE_CURRENT_DATA
+    ) {
+      if (
+        video.videoWidth > 0 &&
+        video.videoHeight > 0
+      ) {
+        canvas.width =
+          video.videoWidth;
+
+        canvas.height =
+          video.videoHeight;
+
+        const ctx =
+          canvas.getContext("2d", {
+            willReadFrequently: true
+          });
+
+        ctx.drawImage(
+          video,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        try {
+          const imageData =
+            ctx.getImageData(
+              0,
+              0,
+              canvas.width,
+              canvas.height
+            );
+
+          const code =
+            jsQR(
+              imageData.data,
+              imageData.width,
+              imageData.height,
+              {
+                inversionAttempts:
+                  "attemptBoth"
+              }
+            );
+
+          if (
+            code &&
+            code.data &&
+            !qrScanInProgress
+          ) {
+            qrScanInProgress = true;
+
+            handleScannedCertID(
+              code.data
+            ).finally(() => {
+              stopCamera();
+            });
+
+            return;
+          }
+        } catch (err) {
+          console.error(
+            "Camera scan error:",
+            err
+          );
+        }
+      }
+    }
+
+    requestAnimationFrame(
+      scanCameraLoop
+    );
+  }
+
+  // ------------------------------------------------------------
+  // QR -> Certificate ID -> Blockchain
+  // ------------------------------------------------------------
+
+  async function handleScannedCertID(certID) {
+    const resultDiv =
+      document.getElementById(
+        "qrVerifyResult"
+      );
+
+    certID = String(certID).trim();
+
+    // If a future QR format contains a URL,
+    // try to extract the certificate ID from it.
+    certID = extractCertificateID(certID);
+
+    document.getElementById(
+      "certIdToVerify"
+    ).value = certID;
+
+    if (!isValidCertID(certID)) {
+      resultDiv.className =
+        "invalid";
+
+      resultDiv.innerHTML =
+        "❌ Invalid Certificate QR<br>" +
+        "<div class='idbox'>" +
+        escapeHtml(certID) +
+        "</div>";
+
+      logLine(
+        "QR contained invalid certificate ID",
+        "err"
+      );
+
+      return;
+    }
+
+    if (!readContract) {
+      resultDiv.className =
+        "invalid";
+
+      resultDiv.innerText =
+        "❌ Blockchain read connection is not available.";
+
+      return;
+    }
+
+    resultDiv.className =
+      "neutral";
+
+    resultDiv.innerText =
+      "🔍 Checking certificate on blockchain…";
+
+    logLine(
+      "QR decoded → " +
+      certID,
+      null
+    );
+
+    try {
+      const isValid =
+        await readContract.verifyCertificate(
+          certID
+        );
+
+      if (isValid) {
+        resultDiv.className =
+          "valid";
+
+        resultDiv.innerHTML =
+          "✅ CERTIFICATE IS VALID<br>" +
+          "<div class='idbox'>" +
+          escapeHtml(certID) +
+          "</div>";
+
+        logLine(
+          "QR verification → VALID",
+          "ok"
+        );
+
+      } else {
+        resultDiv.className =
+          "invalid";
+
+        resultDiv.innerHTML =
+          "❌ CERTIFICATE IS INVALID / REVOKED<br>" +
+          "<div class='idbox'>" +
+          escapeHtml(certID) +
+          "</div>";
+
+        logLine(
+          "QR verification → INVALID / REVOKED",
+          "err"
+        );
+      }
+
+    } catch (err) {
+      console.error(err);
+
+      const message =
+        err.reason ||
+        err.shortMessage ||
+        err.message ||
+        String(err);
+
+      resultDiv.className =
+        "invalid";
+
+      resultDiv.innerText =
+        "❌ Blockchain verification failed: " +
+        message;
+
+      logLine(
+        "QR blockchain verification failed: " +
+        message,
+        "err"
+      );
+    }
+  }
+
+  function extractCertificateID(value) {
+    value = value.trim();
+
+    // Normal QR generated by this website:
+    // 0x + 64 hexadecimal characters.
+    if (isValidCertID(value)) {
+      return value;
+    }
+
+    // Optional support for a future QR URL such as:
+    // https://example.com/verify.html?id=0x...
+    try {
+      const url =
+        new URL(value);
+
+      const id =
+        url.searchParams.get("id") ||
+        url.searchParams.get("certificateID") ||
+        url.searchParams.get("certId");
+
+      if (id && isValidCertID(id)) {
+        return id.trim();
+      }
+    } catch (_) {
+      // Not a URL. That's okay.
+    }
+
+    return value;
+  }
+
+  function showQRResult(type, message) {
+    const resultDiv =
+      document.getElementById(
+        "qrVerifyResult"
+      );
+
+    if (type === true) {
+      resultDiv.className =
+        "valid";
+    } else if (type === false) {
+      resultDiv.className =
+        "invalid";
+    } else {
+      resultDiv.className =
+        "neutral";
+    }
+
+    resultDiv.innerText =
+      message;
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // ------------------------------------------------------------
+  // ISSUER MANAGEMENT
+  // ------------------------------------------------------------
+
+  async function authorizeIssuer() {
+    if (!contract) { alert("Please connect MetaMask first."); return; }
+    const address = document.getElementById("issuerAddress").value.trim();
+    const result = document.getElementById("authorizeResult");
+    if (!ethers.isAddress(address)) { result.className="readout bad show"; result.innerText="❌ Invalid issuer wallet address."; return; }
+    result.className="readout neutral show"; result.innerText="checking owner permission…";
+    try {
+      const owner = await readContract.owner();
+      const caller = await signer.getAddress();
+      if (owner.toLowerCase() !== caller.toLowerCase()) throw new Error("Only the contract owner can authorize issuers.");
+      const tx = await contract.authorizeIssuer(address);
+      result.innerText="⏳ Transaction submitted. Waiting for confirmation…";
+      await tx.wait();
+      result.className="readout ok show"; result.innerText="✅ Issuer authorized successfully: " + address;
+      logLine("issuer authorized → " + address, "ok");
+    } catch (err) { const m=err.reason||err.shortMessage||err.message||String(err); result.className="readout bad show"; result.innerText="❌ Error: "+m; logLine("authorizeIssuer failed: "+m,"err"); }
+  }
+
+  async function revokeIssuer() {
+    if (!contract) { alert("Please connect MetaMask first."); return; }
+    const address = document.getElementById("issuerRevokeAddress").value.trim();
+    const result = document.getElementById("issuerRevokeResult");
+    if (!ethers.isAddress(address)) { result.className="readout bad show"; result.innerText="❌ Invalid issuer wallet address."; return; }
+    result.className="readout neutral show"; result.innerText="checking owner permission…";
+    try {
+      const owner = await readContract.owner();
+      const caller = await signer.getAddress();
+      if (owner.toLowerCase() !== caller.toLowerCase()) throw new Error("Only the contract owner can revoke issuer access.");
+      const tx = await contract.revokeIssuer(address);
+      result.innerText="⏳ Transaction submitted. Waiting for confirmation…";
+      await tx.wait();
+      result.className="readout ok show"; result.innerText="🚫 Issuer access revoked: " + address;
+      logLine("issuer access revoked → " + address, "ok");
+    } catch (err) { const m=err.reason||err.shortMessage||err.message||String(err); result.className="readout bad show"; result.innerText="❌ Error: "+m; logLine("revokeIssuer failed: "+m,"err"); }
+  }
+
+  // ------------------------------------------------------------
+  // GET CERTIFICATE DETAILS
+  // ------------------------------------------------------------
+
+  async function getCertificateDetails() {
+    const certID=document.getElementById("certIdToGet").value.trim();
+    const result=document.getElementById("certificateDetails");
+    if (!isValidCertID(certID)) { result.className="details-card show bad-card"; result.innerText="❌ Invalid Certificate ID. Expected a bytes32 value."; return; }
+    if (!readContract) { result.className="details-card show bad-card"; result.innerText="❌ Blockchain read connection is not initialized."; return; }
+    result.className="details-card show"; result.innerText="🔍 Reading certificate from blockchain…";
+    try {
+      const cert=await readContract.getCertificate(certID);
+      const status=Number(cert.status)===0 ? "ISSUED" : "REVOKED";
+      const date=new Date(Number(cert.issueDate)*1000).toLocaleString();
+      result.innerHTML=`<div class="detail-status ${status==='ISSUED'?'issued':'revoked'}">${status}</div>
+        <div class="detail-row"><span>Issuer</span><code>${escapeHtml(cert.issuer)}</code></div>
+        <div class="detail-row"><span>Student</span><code>${escapeHtml(cert.student)}</code></div>
+        <div class="detail-row"><span>Certificate Hash</span><code>${escapeHtml(cert.certificateHash)}</code></div>
+        <div class="detail-row"><span>Issue Date</span><strong>${escapeHtml(date)}</strong></div>
+        <div class="detail-row"><span>Certificate ID</span><code>${escapeHtml(certID)}</code></div>`;
+      logLine("certificate details retrieved → "+certID,"ok");
+    } catch (err) { const m=err.reason||err.shortMessage||err.message||String(err); result.className="details-card show bad-card"; result.innerText="❌ "+m; logLine("getCertificate failed: "+m,"err"); }
+  }
+
+  // ------------------------------------------------------------
+  // REVOKE CERTIFICATE
+  // ------------------------------------------------------------
+
+  async function revokeCertificate() {
+    if (!contract) {
+      alert("Please connect MetaMask first.");
+      return;
+    }
+
+    const certID =
+      document.getElementById(
+        "certIdToRevoke"
+      ).value.trim();
+
+    const resultDiv =
+      document.getElementById(
+        "revokeResult"
+      );
+
+    if (!isValidCertID(certID)) {
+      resultDiv.className =
+        "readout bad show";
+
+      resultDiv.innerText =
+        "❌ Invalid Certificate ID.";
+
+      return;
+    }
+
+    resultDiv.className =
+      "readout bad show";
+
+    resultDiv.innerText =
+      "sending revoke transaction…";
+
+    logLine(
+      "revokeCertificate(" +
+      shortAddr(certID) +
+      ") submitted",
+      null
+    );
+
+    try {
+      const tx =
+        await contract.revokeCertificate(
+          certID
+        );
+
+      logLine(
+        "revoke transaction submitted → " +
+        tx.hash,
+        null
+      );
+
+      await tx.wait();
+
+      resultDiv.className =
+        "readout bad show";
+
+      resultDiv.innerText =
+        "🚫 Certificate revoked successfully";
+
+      logLine(
+        "certificate revoked",
+        "ok"
+      );
+
+    } catch (err) {
+      console.error(err);
+
+      const message =
+        err.reason ||
+        err.shortMessage ||
+        err.message ||
+        String(err);
+
+      resultDiv.className =
+        "readout bad show";
+
+      resultDiv.innerText =
+        "❌ Error: " + message;
+
+      logLine(
+        "revokeCertificate failed: " +
+        message,
+        "err"
+      );
+    }
+  }
+</script>
+</body>
+</html>
