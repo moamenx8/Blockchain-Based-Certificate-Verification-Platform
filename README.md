@@ -1,82 +1,93 @@
-# 🔐 Blockchain-Based Certificate Verification Platform
+# 🎓 Certificate Registry
 
-A decentralized certificate issuance and verification platform built using **Blockchain, Smart Contracts, and Web3 technologies**.
+A minimal blockchain-based certificate issuance and verification system, built as a learning project to understand core smart contract concepts: on-chain state, access control, and event-driven data lookup.
 
-The platform allows authorized organizations such as universities, educational institutions, and certification providers to issue digital certificates that can be securely verified through the blockchain.
+Universities (or any authorized issuer) can issue tamper-proof certificates on-chain. Anyone can verify a certificate's authenticity instantly — including by scanning a QR code — without needing to trust a central database.
 
----
+## How it works
 
-## 📌 Overview
+```
+University → Issue Certificate → Blockchain → Certificate ID (+ QR Code)
+                                                      ↓
+                                          Anyone → Verify → VALID / INVALID
+```
 
-Traditional certificates can be forged, modified, or difficult to verify. This project provides a blockchain-based solution where certificate information is registered on-chain using a cryptographic hash.
+- **Issue** — an authorized issuer creates a certificate for a student's wallet address. The contract generates a unique `certificateID` and stores the issuer, student, a hash of the certificate data, and the issue date.
+- **Verify** — anyone can check a certificate ID and get `true`/`false` back. No login, no central server — just the blockchain.
+- **Revoke** — only the original issuer can revoke a certificate they issued. Revoked certificates return `false` on verification but are never deleted (the blockchain is append-only).
 
-Each certificate is associated with a unique blockchain-generated ID, allowing anyone with the certificate ID or QR code to verify its authenticity.
+## Tech stack
 
-The system provides:
+- **Solidity** — smart contract logic
+- **Hardhat 3** — compilation, local test network, deployment
+- **Ethers.js v6** — contract interaction
+- **MetaMask** — wallet connection in the browser
+- **qrcodejs** / **jsQR** — QR code generation and scanning for certificate verification
+- Plain **HTML/CSS/JS** frontend (Arabic UI) — no framework required
 
-- 🔐 Blockchain-based certificate registration
-- ✅ Certificate authenticity verification
-- 🚫 Certificate revocation
-- 👤 Authorized issuer management
-- 📄 Certificate details retrieval
-- 📱 QR code generation
-- 📷 QR code scanning
-- 🦊 MetaMask wallet integration
-- 📊 Activity logging
-- 🌐 Web3-based interaction with the smart contract
+## Project structure
 
----
+```
+contracts/CertificateRegistry.sol   → the smart contract
+test/CertificateRegistry.test.js    → automated tests (issue → verify → revoke)
+scripts/deploy.js                   → deployment script for local/test networks
+index.html                          → frontend (issue, verify, revoke, QR scan/generate)
+```
 
-## ✨ Features
+## Getting started
 
-### 🎓 Certificate Issuance
+### 1. Install dependencies
+```bash
+npm install
+```
 
-Authorized issuers can issue certificates by providing:
+### 2. Run the tests
+```bash
+npx hardhat test
+```
 
-- Student wallet address
-- Certificate hash
+### 3. Start a local blockchain
+```bash
+npx hardhat node
+```
+Keep this terminal running — it starts a local Ethereum network with 20 pre-funded test accounts.
 
-The smart contract generates a unique `certificateID` for every certificate.
+### 4. Deploy the contract (in a new terminal)
+```bash
+npx hardhat run scripts/deploy.js --network localhost
+```
+This prints the deployed contract address — copy it.
 
----
+### 5. Configure the frontend
+Open `index.html` and update:
+```javascript
+const CONTRACT_ADDRESS = "0xYourDeployedAddressHere";
+```
 
-### 🔍 Certificate Verification
+### 6. Connect MetaMask to your local network
+- Network Name: `Hardhat Local`
+- RPC URL: `http://127.0.0.1:8545`
+- Chain ID: `31337`
+- Import an account using one of the private keys printed by `npx hardhat node`
 
-Users can verify a certificate using its unique blockchain certificate ID.
+### 7. Serve the frontend
+```bash
+npx serve .
+```
+Open the printed `localhost` URL in your browser.
 
-The platform checks whether:
+## Usage
 
-1. The certificate exists.
-2. The certificate has not been revoked.
+1. Connect MetaMask (use the account that deployed the contract — it's the default authorized issuer).
+2. **Issue**: enter a student wallet address and certificate details → get a Certificate ID + downloadable QR code.
+3. **Verify**: paste a Certificate ID, or scan its QR code (upload an image or use your camera) → instantly see VALID/INVALID.
+4. **Revoke**: only the issuer who created a certificate can revoke it.
 
-A valid certificate is displayed as:
+## ⚠️ Important notes
 
-> ✅ Certificate is Valid
+- This runs on a **local test network only**. The pre-funded test accounts from `npx hardhat node` use publicly known private keys — never send real funds to them or reuse them on a live network.
+- This is a learning project, not an audited production system. Before any real-world use, the contract would need a security review, gas optimization, and a proper deployment/verification pipeline for a public testnet or mainnet.
 
-A revoked or nonexistent certificate is rejected.
+## License
 
----
-
-### 📱 QR Code Verification
-
-Every issued certificate can generate a QR code containing the certificate ID.
-
-Users can:
-
-- Upload a QR code image.
-- Scan a QR code using their camera.
-- Automatically retrieve the certificate ID.
-- Verify the certificate on the blockchain.
-
----
-
-### 👥 Issuer Management
-
-The contract owner can manage authorized issuers.
-
-#### Authorize Issuer
-
-The owner can add a wallet address as an authorized certificate issuer.
-
-```solidity
-authorizeIssuer(address issuer)
+MIT
