@@ -1,4 +1,4 @@
-# 🎓 Certificate Registry
+# 🎓 Blockchain-Based Certificate Verification Platform
 
 A minimal blockchain-based certificate issuance and verification system, built as a learning project to understand core smart contract concepts: on-chain state, access control, and event-driven data lookup.
 
